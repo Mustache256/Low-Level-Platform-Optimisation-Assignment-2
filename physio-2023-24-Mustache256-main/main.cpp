@@ -14,6 +14,9 @@
 #include <cstdlib>
 #include <ctime>
 #include <chrono>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 using namespace std::chrono;
 
@@ -34,7 +37,6 @@ using namespace std::chrono;
 #define maxX 30.0f
 #define minZ -30.0f
 #define maxZ 30.0f
-
 
 class Vec3 {
 public:
@@ -72,6 +74,7 @@ struct Box {
     Vec3 colour; 
 };
 
+pid_t physProcess;
 
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
@@ -98,6 +101,14 @@ void initScene(int boxCount) {
         box.colour.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 
         boxes.push_back(box);
+    }
+
+    physProcess = fork();
+
+    if(physProcess < 0)
+    {
+        perror("Failed to fork for physProcess");
+        exit(1);
     }
 }
 
@@ -320,10 +331,15 @@ void idle() {
     const duration<float> frameTime = last - old;
     float deltaTime = frameTime.count();
 
-    updatePhysics(deltaTime);
+    if(physProcess == 0)
+        updatePhysics(deltaTime);
+    else
+        // tell glut to draw - note this will cap this function at 60 fps
+        glutPostRedisplay();
 
+    //updatePhysics(deltaTime);
     // tell glut to draw - note this will cap this function at 60 fps
-    glutPostRedisplay();
+    //glutPostRedisplay();
 }
 
 // called the mouse button is tapped
@@ -397,7 +413,17 @@ int main(int argc, char** argv) {
     glMatrixMode(GL_MODELVIEW);
 
     initScene(NUMBER_OF_BOXES);
-    glutDisplayFunc(display);
+
+    if(physProcess == 0)
+    {
+
+    }
+    else
+    {
+        glutDisplayFunc(display);
+    }
+    
+    //glutDisplayFunc(display);
     glutIdleFunc(idle);
 
     // it will stick here until the program ends. 
