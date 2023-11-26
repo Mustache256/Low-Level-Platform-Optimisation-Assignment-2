@@ -18,25 +18,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "Definitions.h"
+#include "ProcessManager.h"
+
 using namespace std::chrono;
-
-// this is the number of falling physical items. 
-#define NUMBER_OF_BOXES 50
-
-// these is where the camera is, where it is looking and the bounds of the continaing box. You shouldn't need to alter these
-
-#define LOOKAT_X 10
-#define LOOKAT_Y 10
-#define LOOKAT_Z 50
-
-#define LOOKDIR_X 10
-#define LOOKDIR_Y 0
-#define LOOKDIR_Z 0
-
-#define minX -10.0f
-#define maxX 30.0f
-#define minZ -30.0f
-#define maxZ 30.0f
 
 class Vec3 {
 public:
@@ -76,9 +61,12 @@ struct Box {
 
 pid_t physProcess;
 
+ProcessManager* physProcessManager = new ProcessManager(NUMBER_OF_PHYS_PROCESSES);
+
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
 std::vector<Box> boxes;
+bool hasForked = false;
 
 void initScene(int boxCount) {
     for (int i = 0; i < boxCount; ++i) {
@@ -101,14 +89,6 @@ void initScene(int boxCount) {
         box.colour.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 
         boxes.push_back(box);
-    }
-
-    physProcess = fork();
-
-    if(physProcess < 0)
-    {
-        perror("Failed to fork for physProcess");
-        exit(1);
     }
 }
 
@@ -330,6 +310,19 @@ void idle() {
     last = steady_clock::now();
     const duration<float> frameTime = last - old;
     float deltaTime = frameTime.count();
+
+    if(!hasForked)
+    {
+        physProcess = fork();
+
+        if(physProcess < 0)
+        {
+            perror("Failed to fork for physProcess");
+            exit(1);
+        }
+
+        hasForked = true;
+    }
 
     if(physProcess == 0)
         updatePhysics(deltaTime);
