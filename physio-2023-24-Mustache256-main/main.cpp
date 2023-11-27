@@ -1,11 +1,3 @@
-// TODO 
-// Tidy and label the code
-// add memory chunks to the box
-// C++ it all
-// convert to PS4? (or make this a student task?) - check out the PS4 SDK samples
-// rename project etc. 
-
-
 #include <stdlib.h>
 #include <GL/glut.h>
 #include <vector>
@@ -18,12 +10,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "Definitions.h"
+#include "Constants.h"
 #include "ProcessManager.h"
+#include "Vec3.h"
+#include "Box.h"
 
 using namespace std::chrono;
 
-class Vec3 {
+/*class Vec3 {
 public:
     float x, y, z;
 
@@ -49,44 +43,36 @@ public:
     float length() const {
         return std::sqrt(x * x + y * y + z * z);
     }
-};
+};*/
 
 // the box (falling item)
-struct Box {
+/*struct Box {
     Vec3 position;
     Vec3 size;
     Vec3 velocity;
     Vec3 colour; 
-};
+};*/
 
-pid_t physProcess;
-
-ProcessManager* physProcessManager = new ProcessManager(NUMBER_OF_PHYS_PROCESSES);
+ProcessManager* physProcessManager;
 
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
 std::vector<Box> boxes;
-bool hasForked = false;
 
 void initScene(int boxCount) {
     for (int i = 0; i < boxCount; ++i) {
         Box box;
 
         // Assign random x, y, and z positions within specified ranges
-        box.position.x = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 20.0f));
-        box.position.y = 10.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1.0f));
-        box.position.z = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 20.0f));
+        box.GenRandPos(box);
 
-        box.size = {1.0f, 1.0f, 1.0f};
+        box.SetBoxSize(box, 1.0f, 1.0f, 1.0f);
 
         // Assign random x-velocity between -1.0f and 1.0f
-        float randomXVelocity = -1.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 2.0f));
-        box.velocity = {randomXVelocity, 0.0f, 0.0f};
+        box.GenRandVel(box);
 
         // Assign a random color to the box
-        box.colour.x = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-        box.colour.y = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-        box.colour.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+        box.GenRandCol(box);
 
         boxes.push_back(box);
     }
@@ -190,7 +176,6 @@ bool checkCollision(const Box& a, const Box& b) {
 // update the physics: gravity, collision test, collision resolution
 void updatePhysics(const float deltaTime) {
     const float floorY = 0.0f;
-
 
     for (Box& box : boxes) {
         // Update velocity due to gravity
@@ -311,28 +296,10 @@ void idle() {
     const duration<float> frameTime = last - old;
     float deltaTime = frameTime.count();
 
-    if(!hasForked)
-    {
-        physProcess = fork();
+    updatePhysics(deltaTime);
 
-        if(physProcess < 0)
-        {
-            perror("Failed to fork for physProcess");
-            exit(1);
-        }
-
-        hasForked = true;
-    }
-
-    if(physProcess == 0)
-        updatePhysics(deltaTime);
-    else
-        // tell glut to draw - note this will cap this function at 60 fps
-        glutPostRedisplay();
-
-    //updatePhysics(deltaTime);
     // tell glut to draw - note this will cap this function at 60 fps
-    //glutPostRedisplay();
+    glutPostRedisplay();
 }
 
 // called the mouse button is tapped
@@ -406,17 +373,8 @@ int main(int argc, char** argv) {
     glMatrixMode(GL_MODELVIEW);
 
     initScene(NUMBER_OF_BOXES);
-
-    if(physProcess == 0)
-    {
-
-    }
-    else
-    {
-        glutDisplayFunc(display);
-    }
     
-    //glutDisplayFunc(display);
+    glutDisplayFunc(display);
     glutIdleFunc(idle);
 
     // it will stick here until the program ends. 

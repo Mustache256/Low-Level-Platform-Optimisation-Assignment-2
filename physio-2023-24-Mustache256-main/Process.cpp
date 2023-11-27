@@ -19,8 +19,6 @@ Process::Process(bool initPipe)
 
 Process::~Process()
 {
-    //Pipe remaining information (if any) back to main process
-
     exit(0);
 }
 
