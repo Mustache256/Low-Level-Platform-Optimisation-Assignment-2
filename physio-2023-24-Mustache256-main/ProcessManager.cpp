@@ -1,18 +1,24 @@
 #include "ProcessManager.h"
 
-ProcessManager::ProcessManager(int numOfNewProcesses)
+ProcessManager::ProcessManager(pid_t mainProcessId, int numOfNewProcesses)
 {
+    boxesPerProcess = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
+
     for(int i = 0; i < numOfNewProcesses; i++)
     {
-        CreateProcess(false);
+        if(getpid() == mainProcessId)
+        {
+            CreateProcess(false);
+        } 
     }
 }
 
-ProcessManager::ProcessManager(int numOfNewProcesses, bool initPipes)
+ProcessManager::ProcessManager(pid_t mainProcessId, int numOfNewProcesses, bool initPipes)
 {
     for(int i = 0; i < numOfNewProcesses; i++)
     {
-        CreateProcess(initPipes);
+        if(getpid() == mainProcessId)
+            CreateProcess(initPipes);
     }
 }
 
@@ -27,14 +33,16 @@ ProcessManager::~ProcessManager()
 
 void ProcessManager::CreateProcess()
 {
-    Process* newProcess = new Process(false);
+    Process* newProcess = new Process(false, index);
     processes.push_back(newProcess);
+    index += boxesPerProcess;
 }
 
 void ProcessManager::CreateProcess(bool InitPipe)
 {
-    Process* newProcess = new Process(InitPipe);
+    Process* newProcess = new Process(InitPipe, index);
     processes.push_back(newProcess);
+    index += boxesPerProcess;
 }
 
 void ProcessManager::InsertProcess(Process* p)
@@ -78,12 +86,15 @@ vector<Process*> ProcessManager::GetProcesses()
     return processes;
 }
 
-int ProcessManager::GetProcessPipeRead(int i)
+bool ProcessManager::CheckTasksCompleted()
 {
-    return processes[i]->GetPipeRead();
-}
+    int count;
 
-int ProcessManager::GetProcessPipeWrite(int i)
-{
-    return processes[i]->GetPipeWrite();
+    for(int i = 0; i < processes.size(); i++)
+    {
+        if(processes[i]->tasksComplete)
+            count++;
+    }
+
+    return count == processes.size();
 }

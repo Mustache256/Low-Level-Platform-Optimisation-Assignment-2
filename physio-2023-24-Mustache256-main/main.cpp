@@ -54,6 +54,9 @@ public:
 };*/
 
 ProcessManager* physProcessManager;
+int boxesPerProcess;
+pid_t mainProcessId;
+bool managerInstanceCreated = false;
 
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
@@ -76,6 +79,11 @@ void initScene(int boxCount) {
 
         boxes.push_back(box);
     }
+
+#if USING_MULTIPROCESSING
+    boxesPerProcess = boxCount / NUMBER_OF_PHYS_PROCESSES;
+    mainProcessId = getpid();
+#endif
 }
 
 // a ray which is used to tap (by default, remove) a box - see the 'mouse' function for how this is used.
@@ -176,7 +184,9 @@ bool checkCollision(const Box& a, const Box& b) {
 // update the physics: gravity, collision test, collision resolution
 void updatePhysics(const float deltaTime) {
     const float floorY = 0.0f;
+#if USING_MULTIPROCESSING
 
+#else
     for (Box& box : boxes) {
         // Update velocity due to gravity
         box.velocity.y += gravity * deltaTime;
@@ -210,6 +220,7 @@ void updatePhysics(const float deltaTime) {
             }
         }
     }
+#endif
 }
 
 // draw the sides of the containing area
@@ -274,6 +285,31 @@ void drawScene() {
     }
 }
 
+void updateBoxesForRender()
+{
+    for(Process* process : physProcessManager->GetProcesses())
+    {
+        for(int i = 0; i < process->numOfBoxes; i++)
+        {
+            float buf[sizeof(float)];
+
+            read(process->pipefd[0], buf, sizeof(float));
+            boxes[process->boxIndex + i].position.x = *buf;
+            read(process->pipefd[0], buf, sizeof(float));
+            boxes[process->boxIndex + i].position.y = *buf;
+            read(process->pipefd[0], buf, sizeof(float));
+            boxes[process->boxIndex + i].position.z = *buf;
+
+            read(process->pipefd[0], buf, sizeof(float));
+            boxes[process->boxIndex + i].velocity.x = *buf;
+            read(process->pipefd[0], buf, sizeof(float));
+            boxes[process->boxIndex + i].velocity.y = *buf;
+            read(process->pipefd[0], buf, sizeof(float));
+            boxes[process->boxIndex + i].velocity.z = *buf;
+        }
+    }
+}
+
 // called by GLUT - displays the scene
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -296,10 +332,30 @@ void idle() {
     const duration<float> frameTime = last - old;
     float deltaTime = frameTime.count();
 
+#if USING_MULTIPROCESSING
+    if(getpid() == mainProcessId && !managerInstanceCreated)
+    {
+        physProcessManager = new ProcessManager(mainProcessId, NUMBER_OF_PHYS_PROCESSES, true);
+        managerInstanceCreated = true;
+    }
+        
+    if(getpid() != mainProcessId)
+        updatePhysics(deltaTime);
+    else
+    {
+        if(physProcessManager != NULL && physProcessManager->CheckTasksCompleted())
+        {
+            updateBoxesForRender();
+            // tell glut to draw - note this will cap this function at 60 fps
+            glutPostRedisplay();
+            delete physProcessManager;
+            managerInstanceCreated = false;
+        }
+    }
+#else
     updatePhysics(deltaTime);
-
-    // tell glut to draw - note this will cap this function at 60 fps
     glutPostRedisplay();
+#endif
 }
 
 // called the mouse button is tapped
@@ -349,6 +405,10 @@ void keyboard(unsigned char key, int x, int y) {
         for (Box& box : boxes) {
             box.velocity.y += impulseMagnitude;
         }
+    }
+
+    if (key == 'p' && mainProcessId == getpid()){
+        printf("Parent process id: %d \n", getpid());
     }
 }
 

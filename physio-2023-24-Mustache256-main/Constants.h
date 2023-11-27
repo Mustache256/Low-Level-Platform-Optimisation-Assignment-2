@@ -16,4 +16,6 @@
 #define minZ -30.0f
 #define maxZ 30.0f
 
-#define NUMBER_OF_PHYS_PROCESSES 4
+#define NUMBER_OF_PHYS_PROCESSES 5
+
+#define USING_MULTIPROCESSING true

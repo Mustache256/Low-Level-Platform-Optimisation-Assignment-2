@@ -12,10 +12,13 @@ class ProcessManager
 {
 private:
     vector<Process*> processes;
+
+    int boxesPerProcess;
+    int index = 0;
 public:
     ProcessManager();
-    ProcessManager(int numOfNewProcesses);
-    ProcessManager(int numOfNewProcesses, bool initPipes);
+    ProcessManager(pid_t mainProcessId, int numOfNewProcesses);
+    ProcessManager(pid_t mainProcessId, int numOfNewProcesses, bool initPipes);
     ~ProcessManager();
 
     void CreateProcess();
@@ -28,8 +31,10 @@ public:
 
     Process* GetProcess(int i);
     vector<Process*> GetProcesses();
-    int GetProcessPipeRead(int i);
-    int GetProcessPipeWrite(int i);
+    //int GetProcessPipeRead(int i);
+    //int GetProcessPipeWrite(int i);
+
+    bool CheckTasksCompleted();
 };
 
 

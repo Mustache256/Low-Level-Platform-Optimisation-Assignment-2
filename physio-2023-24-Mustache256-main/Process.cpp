@@ -15,6 +15,29 @@ Process::Process(bool initPipe)
     {
         InitPipe();
     }
+
+    tasksComplete = false;
+}
+
+Process::Process(bool initPipe, int indexNum)
+{
+    processId = fork();
+
+    if(processId == -1)
+    {
+        perror("Unable to fork new process");
+        exit(EXIT_FAILURE);
+    }
+
+    numOfBoxes = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
+    boxIndex = indexNum;
+
+    if(initPipe)
+    {
+        InitPipe();
+    }
+    
+    tasksComplete = false;
 }
 
 Process::~Process()
@@ -30,14 +53,4 @@ void Process::InitPipe()
         std::cout << processId;
         exit(EXIT_FAILURE);
     }
-}
-
-int Process::GetPipeRead()
-{
-    return pipefd[0];
-}
-
-int Process::GetPipeWrite()
-{
-    return pipefd[1];
 }
