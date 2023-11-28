@@ -16,6 +16,9 @@
 #define minZ -30.0f
 #define maxZ 30.0f
 
+#define USING_NEW_BOX_CLASS false
+#define USING_NEW_VEC3_CLASS false
+
 #define NUMBER_OF_PHYS_PROCESSES 5
 
 #define USING_MULTIPROCESSING true

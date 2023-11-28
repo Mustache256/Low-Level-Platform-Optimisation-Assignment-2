@@ -30,6 +30,7 @@ public:
     void InitAllProcessPipes();
 
     Process* GetProcess(int i);
+    Process* GetProcessById(pid_t id);
     vector<Process*> GetProcesses();
     //int GetProcessPipeRead(int i);
     //int GetProcessPipeWrite(int i);

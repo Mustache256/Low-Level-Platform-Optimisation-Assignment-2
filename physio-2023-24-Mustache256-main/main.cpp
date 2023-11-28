@@ -12,46 +12,57 @@
 
 #include "Constants.h"
 #include "ProcessManager.h"
-#include "Vec3.h"
-#include "Box.h"
+
+#if USING_NEW_VEC3_CLASS
+    #include "Vec3.h"
+#else
+    class Vec3 {
+    public:
+        float x, y, z;
+
+        Vec3() : x(0.0f), y(0.0f), z(0.0f) {}
+        Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
+
+        // overload the minus operator
+        Vec3 operator-(const Vec3& other) const {
+            return Vec3(x - other.x, y - other.y, z - other.z);
+        }
+
+        // Normalize the vector
+        void normalise() {
+            float length = std::sqrt(x * x + y * y + z * z);
+            if (length != 0) {
+                x /= length;
+                y /= length;
+                z /= length;
+            }
+        }
+
+        // get the length of a vector
+        float length() const {
+            return std::sqrt(x * x + y * y + z * z);
+        }
+    };
+#endif
+
+#if USING_NEW_BOX_CLASS
+    #include "Box.h"
+#else
+    // the box (falling item)
+    struct Box {
+        Vec3 position;
+        Vec3 size;
+        Vec3 velocity;
+        Vec3 colour; 
+    };
+#endif
+
 
 using namespace std::chrono;
 
-/*class Vec3 {
-public:
-    float x, y, z;
 
-    Vec3() : x(0.0f), y(0.0f), z(0.0f) {}
-    Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 
-    // overload the minus operator
-    Vec3 operator-(const Vec3& other) const {
-        return Vec3(x - other.x, y - other.y, z - other.z);
-    }
 
-    // Normalize the vector
-    void normalise() {
-        float length = std::sqrt(x * x + y * y + z * z);
-        if (length != 0) {
-            x /= length;
-            y /= length;
-            z /= length;
-        }
-    }
-
-    // get the length of a vector
-    float length() const {
-        return std::sqrt(x * x + y * y + z * z);
-    }
-};*/
-
-// the box (falling item)
-/*struct Box {
-    Vec3 position;
-    Vec3 size;
-    Vec3 velocity;
-    Vec3 colour; 
-};*/
 
 ProcessManager* physProcessManager;
 int boxesPerProcess;
@@ -65,7 +76,7 @@ std::vector<Box> boxes;
 void initScene(int boxCount) {
     for (int i = 0; i < boxCount; ++i) {
         Box box;
-
+#if USING_NEW_BOX_CLASS
         // Assign random x, y, and z positions within specified ranges
         box.GenRandPos(box);
 
@@ -78,6 +89,20 @@ void initScene(int boxCount) {
         box.GenRandCol(box);
 
         boxes.push_back(box);
+#else
+        box.position.x = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 20.0f));
+        box.position.y = 10.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1.0f));
+        box.position.z = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 20.0f));
+
+        float randomXVelocity = -1.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 2.0f));
+        box.velocity = {randomXVelocity, 0.0f, 0.0f};
+
+        box.colour.x = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+        box.colour.y = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+        box.colour.z = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+
+        box.size = {1.0f, 1.0f, 1.0f};
+#endif
     }
 
 #if USING_MULTIPROCESSING
@@ -185,7 +210,59 @@ bool checkCollision(const Box& a, const Box& b) {
 void updatePhysics(const float deltaTime) {
     const float floorY = 0.0f;
 #if USING_MULTIPROCESSING
+    Process* thisProcess = physProcessManager->GetProcessById(getpid());
 
+    if(thisProcess == nullptr)
+    {
+        printf("\nCannot use this process to handle box physics, as it is not a part of physProcessManager\n");
+        return;
+    }
+
+    if(thisProcess->tasksComplete)
+        return;
+
+    std::vector<Box> boxesToProcess;
+
+    for(int i = 0; i < thisProcess->numOfBoxes; i++)
+    {
+        boxesToProcess.push_back(boxes[thisProcess->boxIndex + i]);
+    }
+
+    for (Box& box : boxesToProcess) {
+        // Update velocity due to gravity
+        box.velocity.y += gravity * deltaTime;
+
+        // Update position based on velocity
+        box.position.x += box.velocity.x * deltaTime;
+        box.position.y += box.velocity.y * deltaTime;
+        box.position.z += box.velocity.z * deltaTime;
+
+        // Check for collision with the floor
+        if (box.position.y - box.size.y / 2.0f < floorY) {
+            box.position.y = floorY + box.size.y / 2.0f;
+            float dampening = 0.7f;
+            box.velocity.y = -box.velocity.y * dampening;
+        }
+
+        // Check for collision with the walls
+        if (box.position.x - box.size.x / 2.0f < minX || box.position.x + box.size.x / 2.0f > maxX) {
+            box.velocity.x = -box.velocity.x;
+        }
+        if (box.position.z - box.size.z / 2.0f < minZ || box.position.z + box.size.z / 2.0f > maxZ) {
+            box.velocity.z = -box.velocity.z;
+        }
+
+        // Check for collisions with other boxes
+        for (Box& other : boxesToProcess) {
+            if (&box == &other) continue;
+            if (checkCollision(box, other)) {
+                resolveCollision(box, other);
+                break;
+            }
+        }
+    }
+
+    thisProcess->tasksComplete = true;
 #else
     for (Box& box : boxes) {
         // Update velocity due to gravity
@@ -414,7 +491,6 @@ void keyboard(unsigned char key, int x, int y) {
 
 // the main function. 
 int main(int argc, char** argv) {
-
     srand(static_cast<unsigned>(time(0))); // Seed random number generator
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);

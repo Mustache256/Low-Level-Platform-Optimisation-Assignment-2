@@ -81,6 +81,18 @@ Process* ProcessManager::GetProcess(int i)
     return processes[i];
 }
 
+Process* ProcessManager::GetProcessById(pid_t id)
+{
+    for(Process* process : processes)
+    {
+        if(process->processId == id)
+            return process;
+    }
+
+    printf("\nTrying to access a process that is not within ProcessManager that is calling GetProcessById\n");
+    return nullptr;
+}
+
 vector<Process*> ProcessManager::GetProcesses()
 {
     return processes;
