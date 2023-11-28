@@ -3,14 +3,6 @@
 
 Process::Process(bool initPipe)
 {
-    processId = fork();
-
-    if(processId == -1)
-    {
-        printf("Unable to fork new process");
-        exit(EXIT_FAILURE);
-    }
-
     numOfBoxes = 0;
     boxIndex = 0;
 
@@ -20,10 +12,7 @@ Process::Process(bool initPipe)
     }
 
     tasksComplete = false;
-}
 
-Process::Process(bool initPipe, int indexNum)
-{
     processId = fork();
 
     if(processId == -1)
@@ -31,7 +20,10 @@ Process::Process(bool initPipe, int indexNum)
         printf("Unable to fork new process");
         exit(EXIT_FAILURE);
     }
+}
 
+Process::Process(bool initPipe, int indexNum)
+{
     numOfBoxes = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
     boxIndex = indexNum;
 
@@ -41,6 +33,14 @@ Process::Process(bool initPipe, int indexNum)
     }
     
     tasksComplete = false;
+
+    processId = fork();
+
+    if(processId == -1)
+    {
+        printf("Unable to fork new process");
+        exit(EXIT_FAILURE);
+    }
 }
 
 Process::~Process()

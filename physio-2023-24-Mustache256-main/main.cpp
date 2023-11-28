@@ -8,7 +8,10 @@
 #include <chrono>
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <string.h>
 
 #include "Constants.h"
 #include "ProcessManager.h"
@@ -68,6 +71,15 @@ bool managerInstanceCreated = false;
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
 std::vector<Box> boxes;
+void* shmem;
+
+void* CreateSharedMemory(size_t size)
+{
+    int protection = PROT_READ | PROT_WRITE;
+    int visibility = MAP_SHARED | MAP_ANONYMOUS;
+
+    return mmap(NULL, size, protection, visibility, -1, 0);
+}
 
 void initScene(int boxCount) {
     for (int i = 0; i < boxCount; ++i) {
@@ -104,6 +116,7 @@ void initScene(int boxCount) {
 #if USING_MULTIPROCESSING
     boxesPerProcess = boxCount / NUMBER_OF_PHYS_PROCESSES;
     mainProcessId = getpid();
+    shmem = CreateSharedMemory(sizeof(ProcessManager));
 #endif
 }
 
@@ -206,6 +219,13 @@ bool checkCollision(const Box& a, const Box& b) {
 void updatePhysics(const float deltaTime) {
     const float floorY = 0.0f;
 #if USING_MULTIPROCESSING
+
+    if(physProcessManager == nullptr)
+    {
+        printf("\nphysProcessManager is null for process with id %d", getpid());
+        return;
+    }
+
     Process* thisProcess = physProcessManager->GetProcessById(getpid());
 
     if(thisProcess == nullptr)
@@ -265,7 +285,7 @@ void updatePhysics(const float deltaTime) {
         write(thisProcess->pipefd[1], &box.velocity.y, sizeof(float));
         write(thisProcess->pipefd[1], &box.velocity.z, sizeof(float));
 
-        close(thisProcess->pipefd[1]);
+        //close(thisProcess->pipefd[1]);
     }
 
     thisProcess->tasksComplete = true;
@@ -390,7 +410,7 @@ void updateBoxesForRender()
             read(process->pipefd[0], buf, sizeof(float));
             boxes[process->boxIndex + i].velocity.z = *buf;
 
-            close(process->pipefd[0]);
+            //close(process->pipefd[0]);
         }
     }
 }
@@ -421,11 +441,15 @@ void idle() {
     if(getpid() == mainProcessId && !managerInstanceCreated)
     {
         physProcessManager = new ProcessManager(mainProcessId, NUMBER_OF_PHYS_PROCESSES, true);
+        memcpy(shmem, physProcessManager, sizeof(physProcessManager));
         managerInstanceCreated = true;
     }
         
     if(getpid() != mainProcessId)
+    {
+        physProcessManager = (ProcessManager*)shmem;
         updatePhysics(deltaTime);
+    } 
     else
     {
         if(physProcessManager != NULL && physProcessManager->CheckTasksCompleted())
