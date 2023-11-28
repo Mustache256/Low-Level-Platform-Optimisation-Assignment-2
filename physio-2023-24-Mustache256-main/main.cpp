@@ -277,15 +277,17 @@ void updatePhysics(const float deltaTime) {
             }
         }
 
-        write(thisProcess->pipefd[1], &box.position.x, sizeof(float));
-        write(thisProcess->pipefd[1], &box.position.y, sizeof(float));
-        write(thisProcess->pipefd[1], &box.position.z, sizeof(float));
+        close(thisProcess->pipefd[0]);
 
-        write(thisProcess->pipefd[1], &box.velocity.x, sizeof(float));
-        write(thisProcess->pipefd[1], &box.velocity.y, sizeof(float));
-        write(thisProcess->pipefd[1], &box.velocity.z, sizeof(float));
+        write(thisProcess->pipefd[1], &box.position.x, sizeof(box.position.x));
+        write(thisProcess->pipefd[1], &box.position.y, sizeof(box.position.y));
+        write(thisProcess->pipefd[1], &box.position.z, sizeof(box.position.z));
 
-        //close(thisProcess->pipefd[1]);
+        write(thisProcess->pipefd[1], &box.velocity.x, sizeof(box.velocity.x));
+        write(thisProcess->pipefd[1], &box.velocity.y, sizeof(box.velocity.y));
+        write(thisProcess->pipefd[1], &box.velocity.z, sizeof(box.velocity.z));
+
+        close(thisProcess->pipefd[1]);
     }
 
     thisProcess->tasksComplete = true;
@@ -396,6 +398,8 @@ void updateBoxesForRender()
         {
             float buf[sizeof(float)];
 
+            close(process->pipefd[1]);
+
             read(process->pipefd[0], buf, sizeof(float));
             boxes[process->boxIndex + i].position.x = *buf;
             read(process->pipefd[0], buf, sizeof(float));
@@ -410,7 +414,7 @@ void updateBoxesForRender()
             read(process->pipefd[0], buf, sizeof(float));
             boxes[process->boxIndex + i].velocity.z = *buf;
 
-            //close(process->pipefd[0]);
+            close(process->pipefd[0]);
         }
     }
 }
