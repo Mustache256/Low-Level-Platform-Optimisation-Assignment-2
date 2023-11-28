@@ -7,20 +7,12 @@
 
 class Process
 {
-private:
-    
 public:
     Process(bool initPipe);
     Process(bool initPipe, int indexNum);
     ~Process();
 
     void InitPipe();
-    //int GetPipeWrite();
-    //int GetPipeRead();
-
-    //pid_t GetProcessId();
-    //void SetTasksComplete(bool complete);
-    //bool GetTasksComplete();
 
     pid_t processId;
     int pipefd[2];

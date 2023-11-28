@@ -7,9 +7,12 @@ Process::Process(bool initPipe)
 
     if(processId == -1)
     {
-        perror("Unable to fork new process");
+        printf("Unable to fork new process");
         exit(EXIT_FAILURE);
     }
+
+    numOfBoxes = 0;
+    boxIndex = 0;
 
     if(initPipe)
     {
@@ -25,7 +28,7 @@ Process::Process(bool initPipe, int indexNum)
 
     if(processId == -1)
     {
-        perror("Unable to fork new process");
+        printf("Unable to fork new process");
         exit(EXIT_FAILURE);
     }
 
@@ -49,8 +52,7 @@ void Process::InitPipe()
 {
     if(pipe(pipefd) < 0)
     {
-        perror("Unable to create pipe for process id: ");
-        std::cout << processId;
+        printf("Unable to create pipe for process id: %d", processId);
         exit(EXIT_FAILURE);
     }
 }

@@ -1,20 +1,14 @@
 #include "ProcessManager.h"
 
-ProcessManager::ProcessManager(pid_t mainProcessId, int numOfNewProcesses)
+ProcessManager::ProcessManager()
 {
     boxesPerProcess = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
-
-    for(int i = 0; i < numOfNewProcesses; i++)
-    {
-        if(getpid() == mainProcessId)
-        {
-            CreateProcess(false);
-        } 
-    }
 }
 
 ProcessManager::ProcessManager(pid_t mainProcessId, int numOfNewProcesses, bool initPipes)
 {
+    boxesPerProcess = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
+
     for(int i = 0; i < numOfNewProcesses; i++)
     {
         if(getpid() == mainProcessId)
@@ -29,13 +23,6 @@ ProcessManager::~ProcessManager()
     {
         process->~Process();
     }
-}
-
-void ProcessManager::CreateProcess()
-{
-    Process* newProcess = new Process(false, index);
-    processes.push_back(newProcess);
-    index += boxesPerProcess;
 }
 
 void ProcessManager::CreateProcess(bool InitPipe)

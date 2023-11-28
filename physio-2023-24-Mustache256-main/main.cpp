@@ -60,10 +60,6 @@
 
 using namespace std::chrono;
 
-
-
-
-
 ProcessManager* physProcessManager;
 int boxesPerProcess;
 pid_t mainProcessId;
@@ -260,6 +256,16 @@ void updatePhysics(const float deltaTime) {
                 break;
             }
         }
+
+        write(thisProcess->pipefd[1], &box.position.x, sizeof(float));
+        write(thisProcess->pipefd[1], &box.position.y, sizeof(float));
+        write(thisProcess->pipefd[1], &box.position.z, sizeof(float));
+
+        write(thisProcess->pipefd[1], &box.velocity.x, sizeof(float));
+        write(thisProcess->pipefd[1], &box.velocity.y, sizeof(float));
+        write(thisProcess->pipefd[1], &box.velocity.z, sizeof(float));
+
+        close(thisProcess->pipefd[1]);
     }
 
     thisProcess->tasksComplete = true;
@@ -383,6 +389,8 @@ void updateBoxesForRender()
             boxes[process->boxIndex + i].velocity.y = *buf;
             read(process->pipefd[0], buf, sizeof(float));
             boxes[process->boxIndex + i].velocity.z = *buf;
+
+            close(process->pipefd[0]);
         }
     }
 }

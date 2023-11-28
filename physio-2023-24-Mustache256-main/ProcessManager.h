@@ -17,11 +17,9 @@ private:
     int index = 0;
 public:
     ProcessManager();
-    ProcessManager(pid_t mainProcessId, int numOfNewProcesses);
     ProcessManager(pid_t mainProcessId, int numOfNewProcesses, bool initPipes);
     ~ProcessManager();
-
-    void CreateProcess();
+    
     void CreateProcess(bool initPipe);
     void InsertProcess(Process* p);
     void ExitProcess(int i);
@@ -32,8 +30,6 @@ public:
     Process* GetProcess(int i);
     Process* GetProcessById(pid_t id);
     vector<Process*> GetProcesses();
-    //int GetProcessPipeRead(int i);
-    //int GetProcessPipeWrite(int i);
 
     bool CheckTasksCompleted();
 };
