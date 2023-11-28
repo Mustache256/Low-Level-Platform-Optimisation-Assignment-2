@@ -1,7 +1,7 @@
 
 #include "Process.h"
 
-Process::Process(bool initPipe)
+/*Process::Process(bool initPipe)
 {
     numOfBoxes = 0;
     boxIndex = 0;
@@ -22,7 +22,7 @@ Process::Process(bool initPipe)
     }
 }
 
-Process::Process(bool initPipe, int indexNum)
+Process::Process(bool initPipe, int boxIndexNum)
 {
     numOfBoxes = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
     boxIndex = indexNum;
@@ -41,6 +41,40 @@ Process::Process(bool initPipe, int indexNum)
         printf("Unable to fork new process");
         exit(EXIT_FAILURE);
     }
+}*/
+
+Process::Process(int pipeI)
+{
+    numOfBoxes = 0;
+    boxIndex = 0;
+    pipeIndex = pipeI;
+
+    tasksComplete = false;
+
+    processId = fork();
+
+    if(processId == -1)
+    {
+        printf("Unable to fork new process");
+        exit(EXIT_FAILURE);
+    }
+}
+
+Process::Process(int pipeI, int boxIndexNum)
+{
+    numOfBoxes = NUMBER_OF_BOXES / NUMBER_OF_PHYS_PROCESSES;
+    boxIndex = boxIndexNum;
+    pipeIndex = pipeI;
+    
+    tasksComplete = false;
+
+    processId = fork();
+
+    if(processId == -1)
+    {
+        printf("Unable to fork new process");
+        exit(EXIT_FAILURE);
+    }
 }
 
 Process::~Process()
@@ -48,11 +82,11 @@ Process::~Process()
     exit(0);
 }
 
-void Process::InitPipe()
+/*void Process::InitPipe()
 {
     if(pipe(pipefd) < 0)
     {
         printf("Unable to create pipe for process id: %d", processId);
         exit(EXIT_FAILURE);
     }
-}
+}*/

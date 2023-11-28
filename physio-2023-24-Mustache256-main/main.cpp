@@ -15,6 +15,7 @@
 
 #include "Constants.h"
 #include "ProcessManager.h"
+#include "Pipe.h"
 
 #if USING_NEW_VEC3_CLASS
     #include "Vec3.h"
@@ -65,8 +66,10 @@ using namespace std::chrono;
 
 ProcessManager* physProcessManager;
 int boxesPerProcess;
-pid_t mainProcessId;
+pid_t mainProcessId, wpid;
 bool managerInstanceCreated = false;
+
+int status = 0;
 
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
@@ -277,20 +280,91 @@ void updatePhysics(const float deltaTime) {
             }
         }
 
-        close(thisProcess->pipefd[0]);
+        /*close(thisProcess->pipefd[0]);
 
-        write(thisProcess->pipefd[1], &box.position.x, sizeof(box.position.x));
-        write(thisProcess->pipefd[1], &box.position.y, sizeof(box.position.y));
-        write(thisProcess->pipefd[1], &box.position.z, sizeof(box.position.z));
+        if(write(thisProcess->pipefd[1], &box.position.x, sizeof(float)) == -1)
+        {
+            printf("Error with writing box pos x to pipe");
+            exit(1);
+        }
+        
+        if(write(thisProcess->pipefd[1], &box.position.y, sizeof(float)) == -1)
+        {
+            printf("Error with writing box pos y to pipe");
+            exit(1);
+        }
 
-        write(thisProcess->pipefd[1], &box.velocity.x, sizeof(box.velocity.x));
-        write(thisProcess->pipefd[1], &box.velocity.y, sizeof(box.velocity.y));
-        write(thisProcess->pipefd[1], &box.velocity.z, sizeof(box.velocity.z));
+        if(write(thisProcess->pipefd[1], &box.position.z, sizeof(float)) == -1)
+        {
+            printf("Error with writing box pos z to pipe");
+            exit(1);
+        }
 
-        close(thisProcess->pipefd[1]);
+        if(write(thisProcess->pipefd[1], &box.velocity.x, sizeof(float)) == -1)
+        {
+            printf("Error with writing box vel x to pipe");
+            exit(1);
+        }
+
+        if(write(thisProcess->pipefd[1], &box.velocity.y, sizeof(float)) == -1)
+        {
+            printf("Error with writing box vel y to pipe");
+            exit(1);
+        }
+
+        if(write(thisProcess->pipefd[1], &box.velocity.z, sizeof(float)) == -1)
+        {
+            printf("Error with writing box vel z to pipe");
+            exit(1);
+        }
+
+        close(thisProcess->pipefd[1]);*/
+
+        Pipe* processPipe = physProcessManager->GetPipe(thisProcess->pipeIndex);
+
+        close(processPipe->GetReadEnd());
+
+        if(write(processPipe->GetWriteEnd(), &box.position.x, sizeof(float)) == -1)
+        {
+            printf("Error with writing box pos x to pipe");
+            exit(1);
+        }
+        
+        if(write(processPipe->GetWriteEnd(), &box.position.y, sizeof(float)) == -1)
+        {
+            printf("Error with writing box pos y to pipe");
+            exit(1);
+        }
+
+        if(write(processPipe->GetWriteEnd(), &box.position.z, sizeof(float)) == -1)
+        {
+            printf("Error with writing box pos z to pipe");
+            exit(1);
+        }
+
+        if(write(processPipe->GetWriteEnd(), &box.velocity.x, sizeof(float)) == -1)
+        {
+            printf("Error with writing box vel x to pipe");
+            exit(1);
+        }
+
+        if(write(processPipe->GetWriteEnd(), &box.velocity.y, sizeof(float)) == -1)
+        {
+            printf("Error with writing box vel y to pipe");
+            exit(1);
+        }
+
+        if(write(processPipe->GetWriteEnd(), &box.velocity.z, sizeof(float)) == -1)
+        {
+            printf("Error with writing box vel z to pipe");
+            exit(1);
+        }
+
+        close(processPipe->GetWriteEnd());
     }
 
     thisProcess->tasksComplete = true;
+    thisProcess->~Process();
 #else
     for (Box& box : boxes) {
         // Update velocity due to gravity
@@ -392,30 +466,144 @@ void drawScene() {
 
 void updateBoxesForRender()
 {
-    for(Process* process : physProcessManager->GetProcesses())
-    {
+    /*for(Process* process : physProcessManager->GetProcesses())
+    {   
+        printf("Updating boxes on main...\n");
+        close(process->pipefd[1]);
+
+        float buf;
+
         for(int i = 0; i < process->numOfBoxes; i++)
         {
-            float buf[sizeof(float)];
+            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box pos x from pipe");
+                exit(1);
+            }
+            printf("New pos x: %.6f\n", buf);
+            boxes[process->boxIndex + i].position.x = buf;
 
-            close(process->pipefd[1]);
+            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box pos y from pipe");
+                exit(1);
+            }
+            printf("New pos y: %.6f\n", buf);
+            boxes[process->boxIndex + i].position.y = buf;
 
-            read(process->pipefd[0], buf, sizeof(float));
-            boxes[process->boxIndex + i].position.x = *buf;
-            read(process->pipefd[0], buf, sizeof(float));
-            boxes[process->boxIndex + i].position.y = *buf;
-            read(process->pipefd[0], buf, sizeof(float));
-            boxes[process->boxIndex + i].position.z = *buf;
+            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box pos z from pipe");
+                exit(1);
+            }
+            printf("New pos z: %.6f\n", buf);
+            boxes[process->boxIndex + i].position.z = buf;
 
-            read(process->pipefd[0], buf, sizeof(float));
-            boxes[process->boxIndex + i].velocity.x = *buf;
-            read(process->pipefd[0], buf, sizeof(float));
-            boxes[process->boxIndex + i].velocity.y = *buf;
-            read(process->pipefd[0], buf, sizeof(float));
-            boxes[process->boxIndex + i].velocity.z = *buf;
+            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box vel x from pipe");
+                exit(1);
+            }
+            printf("New vel x: %.6f\n", buf);
+            boxes[process->boxIndex + i].velocity.x = buf;
 
-            close(process->pipefd[0]);
+            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box vel y from pipe");
+                exit(1);
+            }
+            printf("New vel y: %.6f\n", buf);
+            boxes[process->boxIndex + i].velocity.y = buf;
+
+            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box vel z from pipe");
+                exit(1);
+            }
+            printf("New vel z: %.6f\n", buf);
+            boxes[process->boxIndex + i].velocity.z = buf;
         }
+
+        if(int nbytes = read(process->pipefd[0], &buf, sizeof(float)) != 0)
+        {
+            printf("Pipe not empty, did not read everthing from pipe, data missed when updating boxes");
+        }
+
+        close(process->pipefd[0]);
+    }*/
+
+    int boxIndex = 0;
+
+    for(Pipe* pipe : physProcessManager->GetPipes())
+    {   
+        printf("Updating boxes on main...\n");
+        close(pipe->GetWriteEnd());
+
+        float buf;
+
+        if(int nbytes = read(pipe->GetReadEnd(), &buf, sizeof(float)) == 0)
+        {
+            printf("Pipe empty, cannot update boxes\n");
+            continue;
+        }
+
+        for(int i = 0; i < physProcessManager->GetBoxesPerProcess(); i++)
+        {
+            if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box pos x from pipe");
+                exit(1);
+            }
+            printf("New pos x: %.6f\n", buf);
+            boxes[boxIndex + i].position.x = buf;
+
+            if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box pos y from pipe");
+                exit(1);
+            }
+            printf("New pos y: %.6f\n", buf);
+            boxes[boxIndex + i].position.y = buf;
+
+            if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box pos z from pipe");
+                exit(1);
+            }
+            printf("New pos z: %.6f\n", buf);
+            boxes[boxIndex + i].position.z = buf;
+
+            if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box vel x from pipe");
+                exit(1);
+            }
+            printf("New vel x: %.6f\n", buf);
+            boxes[boxIndex + i].velocity.x = buf;
+
+            if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box vel y from pipe");
+                exit(1);
+            }
+            printf("New vel y: %.6f\n", buf);
+            boxes[boxIndex + i].velocity.y = buf;
+
+            if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
+            {
+                printf("Error reading box vel z from pipe");
+                exit(1);
+            }
+            printf("New vel z: %.6f\n", buf);
+            boxes[boxIndex + i].velocity.z = buf;
+        }
+
+        if(int nbytes = read(pipe->GetReadEnd(), &buf, sizeof(float)) != 0)
+        {
+            printf("Pipe not empty, did not read everthing from pipe, data missed when updating boxes");
+        }
+
+        close(pipe->GetReadEnd());
     }
 }
 
@@ -456,14 +644,16 @@ void idle() {
     } 
     else
     {
-        if(physProcessManager != NULL && physProcessManager->CheckTasksCompleted())
+        while((wpid = wait(&status)) > 0)
         {
-            updateBoxesForRender();
-            // tell glut to draw - note this will cap this function at 60 fps
-            glutPostRedisplay();
-            delete physProcessManager;
-            managerInstanceCreated = false;
+            //Do nothing until all children have finished executing 
         }
+        //sleep(0.1f);
+        updateBoxesForRender();
+        // tell glut to draw - note this will cap this function at 60 fps
+        glutPostRedisplay();
+        delete physProcessManager;
+        managerInstanceCreated = false;
     }
 #else
     updatePhysics(deltaTime);

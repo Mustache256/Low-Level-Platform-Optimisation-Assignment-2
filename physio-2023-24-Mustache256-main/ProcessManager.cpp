@@ -11,8 +11,14 @@ ProcessManager::ProcessManager(pid_t mainProcessId, int numOfNewProcesses, bool 
 
     for(int i = 0; i < numOfNewProcesses; i++)
     {
+        Pipe* p = new Pipe();
+        pipes.push_back(p);
+    }
+
+    for(int i = 0; i < numOfNewProcesses; i++)
+    {
         if(getpid() == mainProcessId)
-            CreateProcess(initPipes);
+            CreateProcess(i);
     }
 }
 
@@ -25,9 +31,16 @@ ProcessManager::~ProcessManager()
     }
 }
 
-void ProcessManager::CreateProcess(bool InitPipe)
+/*void ProcessManager::CreateProcess(bool InitPipe)
 {
     Process* newProcess = new Process(InitPipe, index);
+    processes.push_back(newProcess);
+    index += boxesPerProcess;
+}*/
+
+void ProcessManager::CreateProcess(int pipeIndex)
+{
+    Process* newProcess = new Process(pipeIndex, index);
     processes.push_back(newProcess);
     index += boxesPerProcess;
 }
@@ -50,7 +63,7 @@ void ProcessManager::ExitAllProcesses()
     }
 }
 
-void ProcessManager::InitProcessPipe(int i)
+/*void ProcessManager::InitProcessPipe(int i)
 {
     processes[i]->InitPipe();
 }
@@ -61,7 +74,7 @@ void ProcessManager::InitAllProcessPipes()
     {
         p->InitPipe();
     }
-}
+}*/
 
 Process* ProcessManager::GetProcess(int i)
 {
@@ -83,6 +96,21 @@ Process* ProcessManager::GetProcessById(pid_t id)
 vector<Process*> ProcessManager::GetProcesses()
 {
     return processes;
+}
+
+Pipe* ProcessManager::GetPipe(int index)
+{
+    return pipes[index];
+}
+
+vector<Pipe*> ProcessManager::GetPipes()
+{
+    return pipes;
+}
+
+int ProcessManager::GetBoxesPerProcess()
+{
+    return boxesPerProcess;
 }
 
 bool ProcessManager::CheckTasksCompleted()
