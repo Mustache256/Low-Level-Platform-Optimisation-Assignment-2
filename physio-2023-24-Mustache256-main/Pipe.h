@@ -7,6 +7,7 @@
 class Pipe
 {
 private:
+    //Pipe file descriptor
     int pipefd[2];
 public:
     Pipe();

@@ -64,9 +64,13 @@
 
 using namespace std::chrono;
 
+//Process manager definition
 ProcessManager* physProcessManager;
+//Stores number of boxes per process
 int boxesPerProcess;
+//Stores main process ID, wpid used in checking that all the child processes have finished executing
 pid_t mainProcessId, wpid;
+//Tracks whether a process maanger has been created
 bool managerInstanceCreated = false;
 
 int status = 0;
@@ -74,8 +78,10 @@ int status = 0;
 // gravity - change it and see what happens (usually negative!)
 const float gravity = -19.81f;
 std::vector<Box> boxes;
+//Pointer to shared memory
 void* shmem;
 
+//Function that creates the shared memory
 void* CreateSharedMemory(size_t size)
 {
     int protection = PROT_READ | PROT_WRITE;
@@ -117,8 +123,11 @@ void initScene(int boxCount) {
     }
 
 #if USING_MULTIPROCESSING
+    //Calculates number of boxes that need to be handled per process
     boxesPerProcess = boxCount / NUMBER_OF_PHYS_PROCESSES;
+    //Store ID of main process
     mainProcessId = getpid();
+    //Initialise shared memory that the process manager can use
     shmem = CreateSharedMemory(sizeof(ProcessManager));
 #endif
 }
@@ -223,29 +232,37 @@ void updatePhysics(const float deltaTime) {
     const float floorY = 0.0f;
 #if USING_MULTIPROCESSING
 
+    //CHecks to make sure that this process has got th eprocess amanger from shared memory
     if(physProcessManager == nullptr)
     {
         printf("\nphysProcessManager is null for process with id %d", getpid());
         return;
     }
 
+    //Finds Process object associated with this process
     Process* thisProcess = physProcessManager->GetProcessById(getpid());
 
+    //Checks that it successfully found its associated Process object
     if(thisProcess == nullptr)
     {
         printf("\nCannot use this process to handle box physics, as it is not a part of physProcessManager\n");
         return;
     }
 
+    //WIll not execute if tasks are already complete
     if(thisProcess->tasksComplete)
         return;
 
     std::vector<Box> boxesToProcess;
 
+    //Get boxes that this process will handle and store them in local vector
     for(int i = 0; i < thisProcess->numOfBoxes; i++)
     {
         boxesToProcess.push_back(boxes[thisProcess->boxIndex + i]);
     }
+
+    //Get pipe associated with this process and store it locally
+    Pipe* processPipe = physProcessManager->GetPipe(thisProcess->pipeIndex);
 
     for (Box& box : boxesToProcess) {
         // Update velocity due to gravity
@@ -280,50 +297,10 @@ void updatePhysics(const float deltaTime) {
             }
         }
 
-        /*close(thisProcess->pipefd[0]);
-
-        if(write(thisProcess->pipefd[1], &box.position.x, sizeof(float)) == -1)
-        {
-            printf("Error with writing box pos x to pipe");
-            exit(1);
-        }
-        
-        if(write(thisProcess->pipefd[1], &box.position.y, sizeof(float)) == -1)
-        {
-            printf("Error with writing box pos y to pipe");
-            exit(1);
-        }
-
-        if(write(thisProcess->pipefd[1], &box.position.z, sizeof(float)) == -1)
-        {
-            printf("Error with writing box pos z to pipe");
-            exit(1);
-        }
-
-        if(write(thisProcess->pipefd[1], &box.velocity.x, sizeof(float)) == -1)
-        {
-            printf("Error with writing box vel x to pipe");
-            exit(1);
-        }
-
-        if(write(thisProcess->pipefd[1], &box.velocity.y, sizeof(float)) == -1)
-        {
-            printf("Error with writing box vel y to pipe");
-            exit(1);
-        }
-
-        if(write(thisProcess->pipefd[1], &box.velocity.z, sizeof(float)) == -1)
-        {
-            printf("Error with writing box vel z to pipe");
-            exit(1);
-        }
-
-        close(thisProcess->pipefd[1]);*/
-
-        Pipe* processPipe = physProcessManager->GetPipe(thisProcess->pipeIndex);
-
+        //Close read end as this process does not need it
         close(processPipe->GetReadEnd());
 
+        //Writes all the new data for the current box to the pipe 
         if(write(processPipe->GetWriteEnd(), &box.position.x, sizeof(float)) == -1)
         {
             printf("Error with writing box pos x to pipe");
@@ -359,10 +336,12 @@ void updatePhysics(const float deltaTime) {
             printf("Error with writing box vel z to pipe");
             exit(1);
         }
-
-        close(processPipe->GetWriteEnd());
     }
 
+    //Closing write end as all data has been written
+    close(processPipe->GetWriteEnd());
+
+    //End this process
     thisProcess->tasksComplete = true;
     thisProcess->~Process();
 #else
@@ -466,87 +445,25 @@ void drawScene() {
 
 void updateBoxesForRender()
 {
-    /*for(Process* process : physProcessManager->GetProcesses())
-    {   
-        printf("Updating boxes on main...\n");
-        close(process->pipefd[1]);
-
-        float buf;
-
-        for(int i = 0; i < process->numOfBoxes; i++)
-        {
-            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
-            {
-                printf("Error reading box pos x from pipe");
-                exit(1);
-            }
-            printf("New pos x: %.6f\n", buf);
-            boxes[process->boxIndex + i].position.x = buf;
-
-            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
-            {
-                printf("Error reading box pos y from pipe");
-                exit(1);
-            }
-            printf("New pos y: %.6f\n", buf);
-            boxes[process->boxIndex + i].position.y = buf;
-
-            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
-            {
-                printf("Error reading box pos z from pipe");
-                exit(1);
-            }
-            printf("New pos z: %.6f\n", buf);
-            boxes[process->boxIndex + i].position.z = buf;
-
-            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
-            {
-                printf("Error reading box vel x from pipe");
-                exit(1);
-            }
-            printf("New vel x: %.6f\n", buf);
-            boxes[process->boxIndex + i].velocity.x = buf;
-
-            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
-            {
-                printf("Error reading box vel y from pipe");
-                exit(1);
-            }
-            printf("New vel y: %.6f\n", buf);
-            boxes[process->boxIndex + i].velocity.y = buf;
-
-            if(read(process->pipefd[0], &buf, sizeof(float)) == -1)
-            {
-                printf("Error reading box vel z from pipe");
-                exit(1);
-            }
-            printf("New vel z: %.6f\n", buf);
-            boxes[process->boxIndex + i].velocity.z = buf;
-        }
-
-        if(int nbytes = read(process->pipefd[0], &buf, sizeof(float)) != 0)
-        {
-            printf("Pipe not empty, did not read everthing from pipe, data missed when updating boxes");
-        }
-
-        close(process->pipefd[0]);
-    }*/
-
     int boxIndex = 0;
 
+    //Loops through all the pipes to read from
     for(Pipe* pipe : physProcessManager->GetPipes())
     {   
         printf("Updating boxes on main...\n");
+        //Close write end as it is not needed
         close(pipe->GetWriteEnd());
 
         float buf;
 
+        //Checks to make sure pipe has data within it, if not then print error message and skip this loop iteration 
         if(int nbytes = read(pipe->GetReadEnd(), &buf, sizeof(float)) == 0)
         {
             printf("Pipe empty, cannot update boxes\n");
             continue;
         }
 
+        //Read data from pipe and update local boxes using said data 
         for(int i = 0; i < physProcessManager->GetBoxesPerProcess(); i++)
         {
             if(read(pipe->GetReadEnd(), &buf, sizeof(float)) == -1)
@@ -598,11 +515,13 @@ void updateBoxesForRender()
             boxes[boxIndex + i].velocity.z = buf;
         }
 
+        //Check to make sure all data has been read out of this pipe, if not print error message
         if(int nbytes = read(pipe->GetReadEnd(), &buf, sizeof(float)) != 0)
         {
             printf("Pipe not empty, did not read everthing from pipe, data missed when updating boxes");
         }
 
+        //Close read end as all data has been read
         close(pipe->GetReadEnd());
     }
 }
@@ -629,16 +548,20 @@ void idle() {
     const duration<float> frameTime = last - old;
     float deltaTime = frameTime.count();
 
+//Can toggle whether multiprocessing is being used
 #if USING_MULTIPROCESSING
     if(getpid() == mainProcessId && !managerInstanceCreated)
     {
+        //Creates new process manager with processes and pipes each frame and makes it shared memory
         physProcessManager = new ProcessManager(mainProcessId, NUMBER_OF_PHYS_PROCESSES, true);
         memcpy(shmem, physProcessManager, sizeof(physProcessManager));
         managerInstanceCreated = true;
     }
-        
+
+    //Only does physics updates if this is child process    
     if(getpid() != mainProcessId)
     {
+        //Gets process manager from shared memory to store locally in this process
         physProcessManager = (ProcessManager*)shmem;
         updatePhysics(deltaTime);
     } 
@@ -648,11 +571,13 @@ void idle() {
         {
             //Do nothing until all children have finished executing 
         }
-        //sleep(0.1f);
+        //Updates local box values
         updateBoxesForRender();
         // tell glut to draw - note this will cap this function at 60 fps
         glutPostRedisplay();
+        //Deletes this frame's process manager
         delete physProcessManager;
+        //THis means that a new process maanger can be made
         managerInstanceCreated = false;
     }
 #else

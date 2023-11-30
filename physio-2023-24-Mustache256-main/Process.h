@@ -9,18 +9,16 @@
 class Process
 {
 public:
-    //Process(bool initPipe);
-    //Process(bool initPipe, int indexNum);
     Process(int pipeI);
     Process(int pipeI, int boxIndexNum);
     ~Process();
 
-    //void InitPipe();
-
+    //Stores ID of this process
     pid_t processId;
-    //int pipefd[2];
+    //Stores index associated with this process' pipe 
     int pipeIndex;
 
+    //Box-Specific values
     int numOfBoxes;
     int boxIndex;
 

@@ -13,9 +13,11 @@ using namespace std;
 class ProcessManager
 {
 private:
+    //Vectors that store processes and pipes
     vector<Process*> processes;
     vector<Pipe*> pipes;
 
+    //Box-specific values
     int boxesPerProcess;
     int index = 0;
 public:
@@ -23,13 +25,10 @@ public:
     ProcessManager(pid_t mainProcessId, int numOfNewProcesses, bool initPipes);
     ~ProcessManager();
     
-    //void CreateProcess(bool initPipe);
     void CreateProcess(int pipeIndex);
     void InsertProcess(Process* p);
     void ExitProcess(int i);
     void ExitAllProcesses();
-    //void InitProcessPipe(int i);
-    //void InitAllProcessPipes();
 
     Process* GetProcess(int i);
     Process* GetProcessById(pid_t id);
